@@ -7,13 +7,45 @@
     <title>xxt8582753（BSOD-MEMZ）的秘密基地 · xxtsoft</title>
     <meta name="description" content="xxt8582753（BSOD-MEMZ）的个人网站，分享Python开发、创意视频、生活趣事的个人博客，也可以下载站长的开源程序">
     <link rel="icon" href="favicon.ico" type="image/x-icon">
-    <link rel="stylesheet" href="style.css" type="text/css" id="themeCss" />
+    <script>
+        (function () {
+            var css = 'style.css';
+            try {
+                var t = localStorage.getItem('theme') || '';
+                if (/^[A-Za-z0-9._-]+\.css$/.test(t)) css = t;
+            } catch (err) { }
+            if (css === 'modern-sticker.css') {
+                var de = document.documentElement;
+                de.className = (de.className ? de.className + ' ' : '') + 'xxt-ic-pending';
+                var pre = document.createElement('link');
+                pre.rel = 'preload';
+                pre.as = 'script';
+                pre.href = 'js/modern-sticker-icons.js';
+                (document.head || de).appendChild(pre);
+                setTimeout(function () {
+                    de.className = de.className.split('xxt-ic-pending').join(' ')
+                        .replace(/\s{2,}/g, ' ').replace(/^\s+|\s+$/g, '');
+                }, 2000);
+            }
+            document.write('<link rel="stylesheet" type="text/css" id="themeCss" href="' + css + '">');
+        })();
+    </script>
     <script src="js/theme-loader.js"></script>
     <base target="_blank">
-    <link rel="preconnect" href="https://cloud.umami.is">
-    <link rel="preconnect" href="https://xxtsoft.top">
-    <script defer src="https://cloud.umami.is/script.js"
-        data-website-id="340048fa-ac87-4757-8011-6ade14611b24"></script>
+    <script>
+        (function () {
+            'use strict';
+            try {
+                if (localStorage.getItem('umami_enabled') === 'false') return;
+            } catch (err) {
+            }
+            var s = document.createElement('script');
+            s.defer = true;
+            s.src = 'https://cloud.umami.is/script.js';
+            s.setAttribute('data-website-id', '340048fa-ac87-4757-8011-6ade14611b24');
+            document.head.appendChild(s);
+        })();
+    </script>
 </head>
 
 <body>
@@ -59,7 +91,6 @@
                     </div>
                     <div id="tagFilters" style="display:flex; flex-wrap:wrap; gap:4px; margin-bottom:6px;"></div>
                     <ul id="articleList">
-                        <!-- 由 js/index.js 动态渲染 -->
                     </ul>
                     <h3><img src="images/icons/projects.png" alt="" width="16" height="16" /> 专栏</h3>
                     <ul>
@@ -125,9 +156,9 @@
                         <li><a href="support/drafts/index.html" class="manga"><img alt="" src="images/icons/tips.png" width="16"
                                     height="16" /> 胡思乱想</a>
                         </li>
-                        <li><a href="support/notes/index.html" class="manga"><img alt="" src="images/icons/note.png" width="16"
+                        <!-- <li><a href="support/notes/index.html" class="manga"><img alt="" src="images/icons/note.png" width="16"
                                     height="16" /> 便笺</a>
-                        </li>
+                        </li> -->
                         <li><a href="support/chomowan/index.html" class="manga"><img alt="" src="images/icons/knowledges.png" width="16" 
                                     height="16" /> 超魔丸バスターズ 故事导读</a>
                         </li>
@@ -148,7 +179,6 @@
                 <div class="window-titlebar">新闻<img src="images/icons/close.png" class="sidebar-close-btn" alt="关闭" title="关闭" style="display:none;" /></div>
                 <div class="window-content news">
                     <ul>
-                        <li><img src="images/icons/msn.png" alt="" width="16" height="16" />【测试中】基于Supabase的账户系统</li>
                         <li><img src="images/icons/discus.png" alt="" width="16" height="16" /> 网站现已支持文章和视频评论区</li>
                         <li><img src="images/online.png" alt="" width="16" height="16" /> BSOD-MEMZ 4周年活动区域解锁！</li>
                     </ul>
@@ -372,16 +402,6 @@
 <script defer src="js/player.js"></script>
 <script defer src="js/ripple.js"></script>
 <script>
-// 异步加载账号系统，不阻塞文章列表渲染
-(function(){
-  var s1 = document.createElement('script');
-  s1.src = 'js/supabase.js';
-  document.head.appendChild(s1);
-  s1.onload = function(){
-    var s2 = document.createElement('script');
-    s2.src = 'js/auth.js';
-    document.head.appendChild(s2);
-  };
-})();
+    console.log("恭喜你找到彩蛋啦~其实，我一直想宣布一件不是很大的大事——我有喜欢的女孩子啦！\n真不是玩抽象，就在我们学校，我一直想表白但总无法鼓起勇气，先刷好感度吧。\n对了，大家不妨猜猜是谁，提示一下，我的网站中出场人物将近二十个人了，她就是其中之一。某种程度上，她也参与了我一些项目的测试工作，而且她真的很牛逼，不过这些事情我后面再找时间讲。");
 </script>
 </html>

@@ -5,10 +5,34 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>测试文章 ⭐ xxtsoft</title>
-    <link rel="stylesheet" href="style.css">
+    <script>
+        (function () {
+            var css = 'style.css';
+            try {
+                if (localStorage.getItem('theme') === 'modern-sticker.css') {
+                    css = 'modern-sticker-article.css';
+                } else if ((localStorage.getItem('article_css') || 'default') === 'zuowen') {
+                    css = 'zuowen-style.css';
+                }
+            } catch (err) { }
+            if (css === 'modern-sticker-article.css') {
+                var de = document.documentElement;
+                de.className = (de.className ? de.className + ' ' : '') + 'xxt-ic-pending';
+                var pre = document.createElement('link');
+                pre.rel = 'preload';
+                pre.as = 'script';
+                pre.href = '../js/modern-sticker-icons.js';
+                (document.head || de).appendChild(pre);
+                setTimeout(function () {
+                    de.className = de.className.split('xxt-ic-pending').join(' ')
+                        .replace(/\s{2,}/g, ' ').replace(/^\s+|\s+$/g, '');
+                }, 2000);
+            }
+            document.write('<link rel="stylesheet" href="' + css + '">');
+        })();
+    </script>
 </head>
 <body>
-    <!-- 顶部图片 -->
     <div class="header-image">
         <img src="vista.jpg" alt="标题图片">
         <div class="title-overlay">
@@ -16,7 +40,6 @@
         </div>
     </div>
 
-    <!-- 渐变分割条 -->
     <div class="gradient-divider">
         <a href="javascript:window.close()" class="button"><img src="close.png" alt="" width="16" height="16" />
             关闭页面</a>
@@ -26,14 +49,12 @@
             打印文章</a>
     </div>
 
-    <!-- 作者信息 -->
     <div class="content-container">
         <div class="author-info">
             <p>作者：xxt8582753</p>
             <p>发布日期：2025年6月25日</p>
         </div>
 
-        <!-- 正文内容 -->
         <div class="article-content">
             <h2>Hello World</h2>
             <p>如果你能看到这篇文章，说明xxt8582753的网站又复活啦</p>
@@ -44,9 +65,31 @@
             <p>我的网站经历了从WordPress到Hexo再到Halo的转变，但这次我决定手搓静态网站，一方面是考虑兼容性（我首页这么花里胡哨兼容个蛋啊，linear-gradient掉大分），另一方面自己搓真的很有成就感（当然也借助了一下AI哈）</p>
             <h3>全静态页面</h3>
             <p>这次就没加注册评论什么的功能了，我觉得对于网站来说还是要简单一点，并且充分考虑用户的隐私，我不收你的数据，你也不用担心数据泄露，也节省了我的成本，这样很好啊。而且你可以想一下，在学校电脑上想登录xx网站结果没带手机收不了验证码，那感觉真的很操蛋</p>
+
+            <h2>LaTeX 公式测试</h2>
+            <p>行内公式：质能方程 $E = mc^2$，勾股定理 $a^2 + b^2 = c^2$，还有 $\alpha, \beta, \gamma, \pi, \theta$ 这些希腊字母。</p>
+            <p>带上下标的：$x_{i}^{2}$、$a_{n+1} = a_n + d$，以及求和 $\sum_{k=1}^{n} k = \frac{n(n+1)}{2}$。</p>
+            <p>分数与根号：$\frac{-b \pm \sqrt{b^2 - 4ac}}{2a}$，极限 $\lim_{x \to 0} \frac{\sin x}{x} = 1$。</p>
+
+            <p>独行公式：</p>
+            $$\int_{-\infty}^{+\infty} e^{-x^2} \, dx = \sqrt{\pi}$$
+
+            <p>矩阵和分段函数：</p>
+            $$\begin{pmatrix} a & b \\ c & d \end{pmatrix} \begin{pmatrix} x \\ y \end{pmatrix} = \begin{pmatrix} ax + by \\ cx + dy \end{pmatrix}$$
+
+            $$f(x) = \begin{cases} x^2 & x \ge 0 \\ -x^2 & x < 0 \end{cases}$$
+
+            <p>括号写法也可以：\[ \nabla \cdot \vec{E} = \frac{\rho}{\varepsilon_0} \]</p>
+
+            <p>顺便验证代码块里的美元符号不会被误当成公式（这段应原样显示）：</p>
+            <pre><code>echo $PATH
+$price = 100;
+sed 's/$/ END/' file.txt</code></pre>
         </div>
     </div>
     <script src="image-viewer.js"></script>
+
+    <script src="katex-loader.js"></script>
 
 <div class="giscus"></div>
 <script src="../js/giscus-loader.js"></script>

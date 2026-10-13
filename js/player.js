@@ -228,8 +228,25 @@
     var wmpInfo = document.getElementById('wmp-info');
     var playImg = document.getElementById('play-img');
     var track = document.getElementById('wmp-track');
+    var playerRoot = document.querySelector('.aero-player');
 
     if (!audio || !fill || !lyricTxt) return; // 非首页没有播放器
+
+    // 播放/暂停状态同步到容器上。
+    // 旧主题靠换 <img src>(下面照旧保留),手账主题下按钮已被换成 <svg>,
+    // 只能靠这个 class 让 CSS 决定显示播放还是暂停图标。
+    function setPlayingUI(isPlaying) {
+      if (playImg && playImg.tagName === 'IMG') {
+        playImg.src = isPlaying ? 'media/assets/pause.png' : 'media/assets/play.png';
+      }
+      if (playerRoot) {
+        if (isPlaying) {
+          playerRoot.classList.add('is-playing');
+        } else {
+          playerRoot.classList.remove('is-playing');
+        }
+      }
+    }
 
     var currentIndex = 0;
 
@@ -248,18 +265,31 @@
       }
     }
 
+    /* 默认专辑封面随主题走:
+       Aero(默认主题)用 WMP 经典的空封面 images/default_album.png(白纸 + 蓝三角);
+       手账用 images/default_album.svg(唱片,形状取自精灵表 i-disc)。
+       判据读 #themeCss **实际生效**的 href —— 与 modern-sticker.js 的
+       syncAlbumCover() 是同一套,两边别写岔了。 */
+    function defaultAlbumSrc() {
+      var link = document.getElementById('themeCss');
+      var href = link ? (link.getAttribute('href') || '') : '';
+      return href.indexOf('modern-sticker') > -1
+        ? 'images/default_album.svg'
+        : 'images/default_album.png';
+    }
+
     function playSong(index) {
       currentIndex = index;
       audio.src = songs[index].url + "?v=" + Math.random();
       var albumImg = document.getElementById('album-img');
       if (albumImg) {
-        albumImg.src = songs[index].cover || 'images/default_album.png';
+        albumImg.src = songs[index].cover || defaultAlbumSrc();
       }
       if (wmpInfo) {
         wmpInfo.innerHTML = "<strong>" + songs[index].title + "</strong> - " + (songs[index].author || "未知作者");
       }
       audio.play();
-      if (playImg) playImg.src = 'media/assets/pause.png';
+      setPlayingUI(true);
       var lis = document.querySelectorAll('.wmp-playlist li');
       for (var j = 0; j < lis.length; j++) lis[j].className = '';
       var activeLi = document.getElementById('song-' + index);
@@ -270,10 +300,10 @@
       if (!audio) return;
       if (audio.paused) {
         audio.play();
-        if (playImg) playImg.src = 'media/assets/pause.png';
+        setPlayingUI(true);
       } else {
         audio.pause();
-        if (playImg) playImg.src = 'media/assets/play.png';
+        setPlayingUI(false);
       }
     };
 

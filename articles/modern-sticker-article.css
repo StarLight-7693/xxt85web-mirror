@@ -1,0 +1,1773 @@
+/* =========================================================================
+   xxtsoft 文章页 · 手账主题（Sticker Book for Articles）
+   -------------------------------------------------------------------------
+   配套：根目录 `modern-sticker.css`（主站）、本站 `article-theme-loader.js`
+   加载：由 article-theme-loader.js 在 localStorage['theme'] 为 modern-* 时启用，
+         替换本站默认的 style.css。默认主题下本文件不会被加载。
+
+   硬约束（与主站一致，改动前先读 docs/STICKER-BOOK.md）：
+     · 禁用 backdrop-filter / 毛玻璃；只用柔和 box-shadow
+     · 字体只用本机字体，不下载任何字体文件
+     · 零外部请求、零新增图片（图形全部由 CSS 画出）
+     · 不修改任何文章正文
+   ========================================================================= */
+
+/* ---------------------------------------------------------------
+   1. 设计令牌（与根目录 modern-sticker.css 保持同源）
+   --------------------------------------------------------------- */
+:root {
+    /* 纸张 */
+    --paper: #FFFCF3;
+    --paper-2: #FBF5E4;
+    --paper-3: #F5EDD7;
+    --paper-sunk: #F8F2E2;
+
+    /* 墨色 */
+    --ink: #3D3A38;
+    --ink-2: #6B655C;
+    --ink-3: #968D7C;
+
+    /* 彩色注记 */
+    --c-rose: #E0416E;
+    --c-teal: #0E9E92;
+    --c-blue: #1478C4;
+    --c-amber: #D08A00;
+    --c-violet: #7A45D6;
+    --c-green: #2F9E3F;
+
+    /* 纸线与边框 */
+    --rule: #EADFC4;
+    --rule-2: #DCCFAE;
+    --rule-dash: #D3C6A2;
+
+    /* 贴纸色 */
+    --tape: #FFD21F;
+    --coral: #FF7A8A;
+    --mint: #3FC7BE;
+    --sky: #5FB8F0;
+    --lilac: #B08BE8;
+    --cream: #FFDD7A;
+
+    /* 主按钮的底纹:一枚圆角五角星(形状与 .xxt-deco-star-round 同一枚),
+       贴在按钮**右下角** —— 不是平铺。颜色烤进 data URI。
+       ⚠️ 用 <g opacity> 包一层而不是分别给 fill/stroke 上透明度:
+          描边压在填充上会叠出更实的边,星星就会变成"实心浅 + 描边深"的双色。
+       ⚠️ 这份必须与 modern-sticker.css 的 :root 逐字符一致(uac 那枚「继续」按钮
+          在两个页面读的是同一个变量名,两处一散就只有一个页面有底纹)。 */
+    --xxt-star-tile: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cg opacity='.42'%3E%3Cpath d='M12 2.6l2.7 5.9 6.4.7-4.8 4.3 1.3 6.3L12 16.6 6.4 19.8l1.3-6.3L2.9 9.2l6.4-.7z' fill='%23FFFFFF' stroke='%23FFFFFF' stroke-width='2.6' stroke-linejoin='round' stroke-linecap='round'/%3E%3C/g%3E%3C/svg%3E");
+    --xxt-star-size: 19px 19px;
+    --xxt-star-pos: right -2px bottom -3px;
+
+    /* 鼠标指针:两枚本地 SVG(箭头 / 手形),颜色已经烤进文件里。
+       ⚠️ 光标是浏览器**独立绘制**的,不继承文档样式 —— 所以这里只能用变量少写几遍
+          路径和 hotspot,**不能**靠它"跟着主题色变"。
+       ⚠️ 两份主题 CSS(顶层 / 文章页)**必须各定义一份**:自定义属性里的 url()
+          是相对**声明它的那份样式表**解析的,路径前缀也不一样。
+       hotspot:箭头取笔尖(2 2),手形取指尖(8 2)。 */
+    --cur-arrow: url("../images/moe_cursor.svg") 2 2, auto;
+    --cur-point: url("../images/moe_link.svg") 8 2, pointer;
+
+    /* 内页那一层米黄:比 --paper 深一档,专门用来把"内容区"从页面背景里分出来
+       (文章正文卡、评论区卡)。取值刻意夹在 --paper-2 与 --paper-3 之间 ——
+       上面那层留给提示条 / 代码块标题栏(paper-2),下面那层留给 code(paper-3),
+       这样米黄、浅纸、深纸三级还都分得清。
+       ⚠️ 必须与 modern-sticker.css 的同名令牌一致;
+          css/giscus-sticker-theme.css 里也有一份硬编码的同值(iframe 读不到这里的变量)。 */
+    --paper-leaf: #F9F0DC;
+
+    /* 圆角 */
+    --r-xs: 3px;
+    --r-sm: 5px;
+    --r-md: 8px;
+    --r-lg: 12px;
+    --r-pill: 999px;
+
+    /* 阴影 */
+    --sh-1: 0 1px 2px rgba(61, 58, 56, .07), 0 6px 14px -8px rgba(61, 58, 56, .16);
+    --sh-2: 0 2px 4px rgba(61, 58, 56, .09), 0 14px 26px -10px rgba(61, 58, 56, .22);
+
+    /* 字体（全部为本机字体） */
+    --font: "Microsoft YaHei UI", "Microsoft YaHei", "PingFang SC", "Hiragino Sans GB", "Source Han Sans SC", sans-serif;
+    --font-mono: Consolas, "Cascadia Mono", "Courier New", "Microsoft YaHei UI", monospace;
+
+    /* 动效 */
+    --ease-soft: cubic-bezier(.22, 1, .36, 1);
+    --ease-pop: cubic-bezier(.34, 1.56, .64, 1);
+    --t-fast: 140ms;
+    --t-mid: 260ms;
+    --t-slow: 420ms;
+
+    /* 版面 */
+    --art-max: 880px;
+    --art-pad: 44px;
+}
+
+/* ---------------------------------------------------------------
+   2. 纸面与基础
+   --------------------------------------------------------------- */
+*,
+*::before,
+*::after {
+    box-sizing: border-box;
+}
+
+html {
+    -webkit-text-size-adjust: 100%;
+}
+
+body {
+    position: relative;
+    margin: 0;
+    padding: 0 0 60px;
+    font-family: var(--font);
+    font-size: 15px;
+    line-height: 1.85;
+    color: var(--ink);
+    background-color: var(--paper);
+    background-image: none;
+    cursor: var(--cur-arrow);
+    -webkit-font-smoothing: antialiased;
+}
+
+/* 纸面层:一处极淡的暖色光晕,仅此而已。
+   阅读页要的是"安静的一张纸" —— 网格线、三色光晕叠在一起会一直在视野边角
+   晃,长文读起来很累,所以这里比主站克制得多。 */
+body::before {
+    content: "";
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;   /* 不用 inset 简写:旧 Edge 不认,会退成 0 尺寸 */
+    z-index: -1;
+    pointer-events: none;
+    background-color: var(--paper);
+    background-image:
+        radial-gradient(ellipse 90% 55% at 50% -8%, rgba(255, 210, 31, .10), transparent 70%),
+        radial-gradient(ellipse 70% 50% at 50% 108%, rgba(63, 199, 190, .07), transparent 70%);
+}
+
+::selection {
+    background: rgba(255, 210, 31, .48);
+    color: var(--ink);
+}
+
+:focus-visible {
+    outline: 2px dashed var(--c-blue);
+    outline-offset: 2px;
+    border-radius: var(--r-xs);
+}
+
+/* 滚动条:与主站同一套斜纹语言(条纹静止) */
+::-webkit-scrollbar {
+    width: 12px;
+    height: 12px;
+}
+
+::-webkit-scrollbar-track {
+    background: var(--paper-3);
+}
+
+::-webkit-scrollbar-thumb {
+    background-color: var(--mint);
+    background-image: repeating-linear-gradient(
+        45deg,
+        rgba(255, 255, 255, .5) 0 5px,
+        transparent 5px 10px
+    );
+    background-size: 14px 14px;
+    border: 3px solid var(--paper-3);
+    border-radius: var(--r-pill);
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background-color: #2FB0A8;
+}
+
+html {
+    scrollbar-color: var(--mint) var(--paper-3);
+}
+
+/* ---------------------------------------------------------------
+   3. 封面与标题
+   照片只作背景底纹:压一层手账斜纹纸 + 纸色纱罩,
+   醒目的标题直接压在照片上(不再套"纸条"),靠文字描边和投影保证可读。
+   --------------------------------------------------------------- */
+.header-image {
+    position: relative;
+    width: 100%;
+    height: 30vw;   /* 不支持 clamp() 的旧浏览器走这条 */
+    height: clamp(200px, 30vw, 320px);
+    overflow: hidden;
+    background: var(--paper-3);
+}
+
+.header-image img {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    /* 照片退成"底纹":降饱和 + 轻微提亮,避免和标题抢注意力 */
+    filter: saturate(.72) brightness(1.02) contrast(.96);
+    transform: scale(1.02);
+}
+
+/* 斜纹层 + 纸色纱罩 + 底部渐隐,三层叠在照片上(纯 CSS,不加图片) */
+.header-image::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 1;
+    pointer-events: none;
+    background-image:
+        /* 斜纹:45°,条纹**加宽**(3px 线 / 20px 周期)并改成**浅色**(白)——
+           原来那条深灰细线(1px / 9px、黑 5%)压在照片上几乎看不出来,
+           现在是一层"斜纹玻璃":盖在照片上显亮,退到标题后面就是柔和底纹。 */
+        repeating-linear-gradient(45deg,
+            rgba(255, 255, 255, .42) 0 3px,
+            transparent 3px 20px),
+        /* 纸色纱罩:整体压去照片的锐度 */
+        linear-gradient(rgba(255, 252, 243, .30), rgba(255, 252, 243, .30));
+}
+
+/* 封面底部:既不加纸色渐隐、也不加任何形状 —— 照片直接切边,下方工具栏
+   用一条虚线接住。之前试过的"猫耳"看起来太刻意,去掉了。
+   ::after 保留为空规则位,方便日后需要时再加。 */
+.header-image::after {
+    content: none;
+}
+
+.title-overlay {
+    position: absolute;
+    top: auto;
+    bottom: 4vw;
+    bottom: clamp(20px, 4vw, 40px);
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 3;
+    width: calc(100% - 32px);
+    max-width: var(--art-max);
+    width: min(var(--art-max), calc(100% - 32px));
+    padding: 0;
+    text-align: left;
+}
+
+/* 标题:无底色,直接压在照片上。
+   用深色文字 + 纸色描边 + 柔和投影,在复杂底图上也能读清。 */
+.title-overlay h1 {
+    display: block;
+    max-width: 100%;
+    margin: 0;
+    padding: 0;
+    font-size: 3.8vw;
+    font-size: clamp(22px, 3.8vw, 34px);
+    font-weight: 700;
+    line-height: 1.42;
+    color: #33302E;
+    text-align: left;
+    background: none;
+    border-radius: 0;
+    box-shadow: none;
+    transform: none;
+    /* 描边:用 paper 色勾一圈,再叠一层柔和投影,替代原来的纸条底 */
+    text-shadow:
+        0 0 2px rgba(255, 252, 243, .95),
+        0 1px 0 rgba(255, 252, 243, .9),
+        0 0 10px rgba(255, 252, 243, .85),
+        0 2px 12px rgba(61, 58, 56, .34);
+    /* 让标题下方浮出一条短横线,替代纸条的边界 */
+    position: relative;
+}
+
+.title-overlay h1::after {
+    content: "";
+    display: block;
+    width: 64px;
+    height: 4px;
+    margin-top: 12px;
+    background: var(--coral);
+    border-radius: var(--r-pill);
+    box-shadow: 0 1px 4px rgba(61, 58, 56, .25);
+}
+
+/* ---------------------------------------------------------------
+   4. 工具栏(关闭 / 回首页 / 打印)
+   --------------------------------------------------------------- */
+.gradient-divider {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 8px;
+    flex-wrap: wrap;
+    height: auto;
+    min-height: 46px;
+    margin: 0 auto 22px;
+    padding: 8px 4vw;
+    padding: 8px clamp(16px, 4vw, 24px);
+    background-image: none;
+    background-color: var(--paper-2);
+    border-bottom: 2px dashed var(--rule-dash);
+}
+
+.button {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 13px;
+    font-size: 13px;
+    line-height: 1.4;
+    color: var(--ink-2);
+    text-decoration: none;
+    background: var(--paper);
+    border: 1px solid var(--rule-2);
+    border-radius: var(--r-pill);
+    transition: background-color var(--t-fast) ease,
+                color var(--t-fast) ease,
+                transform var(--t-fast) var(--ease-soft),
+                border-color var(--t-fast) ease;
+}
+
+.button:hover {
+    color: var(--ink);
+    background: #FFFFFF;
+    border-color: var(--mint);
+    transform: translateY(-1px);
+}
+
+.button:active {
+    transform: translateY(0);
+}
+
+.button img {
+    display: block;
+    width: 16px;
+    height: 16px;
+}
+
+/* ---------------------------------------------------------------
+   4b. 图标
+   矢量化由 modern-sticker-article.js 完成(数据来自主站同一份精灵)
+   --------------------------------------------------------------- */
+.xxt-ic {
+    display: inline-block;
+    width: 1.05em;
+    height: 1.05em;
+    fill: currentColor;
+    flex: none;
+    vertical-align: -0.17em;
+}
+
+#xxt-icon-sprite {
+    position: absolute;
+    width: 0;
+    height: 0;
+    overflow: hidden;
+}
+
+/* 工具栏:图标与文字对齐 */
+.button .xxt-ic {
+    vertical-align: -0.16em;
+}
+
+/* 关闭圆点:平时只是一枚红点,hover 时浮出白色的 ×
+   (CSS 变量可以穿透 <use> 的影子边界,这是它能换色的原理) */
+.button:hover .xxt-ic[data-icon="close-dot"] {
+    --xxt-dot-x: rgba(255, 255, 255, .95);
+}
+
+/* 提示条:同一套图标,按语义分色 */
+.tips .xxt-ic[data-icon="warning"],
+.tips .xxt-ic[data-icon="lightbulb"],
+.tips .xxt-ic[data-icon="trophy"] {
+    fill: var(--c-amber);
+}
+
+.tips .xxt-ic[data-icon="info"],
+.tips .xxt-ic[data-icon="book"],
+.tips .xxt-ic[data-icon="books"] {
+    fill: var(--c-blue);
+}
+
+.tips .xxt-ic[data-icon="broadcast"] {
+    fill: var(--c-rose);
+}
+
+.tips .xxt-ic[data-icon="users"] {
+    fill: var(--c-green);
+}
+
+.tips .xxt-ic[data-icon="monitor"] {
+    fill: var(--c-teal);
+}
+
+/* ---------------------------------------------------------------
+   5. 正文容器:一张铺开的纸
+   --------------------------------------------------------------- */
+.content-container {
+    max-width: var(--art-max);
+    margin: 0 auto;
+    padding: 0 16px;
+}
+
+.author-info {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    flex-wrap: wrap;
+    margin-bottom: 24px;
+    padding: 12px 16px;
+    font-size: 13px;
+    color: var(--ink-2);
+    background: var(--paper-2);
+    border: 1px dashed var(--rule-dash);
+    border-radius: var(--r-md);
+}
+
+/* 左侧那道彩色书脊 */
+.author-info::before {
+    content: "";
+    flex: none;
+    width: 4px;
+    height: 26px;
+    background: var(--c-rose);
+    border-radius: var(--r-pill);
+}
+
+.author-info p {
+    margin: 0;
+    color: var(--ink-2);
+}
+
+.author-info p:first-child {
+    font-style: normal;
+    font-weight: 700;
+    color: var(--ink);
+}
+
+.author-info p:last-child {
+    font-size: 13px;
+}
+
+/* 两条信息之间的分隔点 */
+.author-info p + p::before {
+    content: "·";
+    margin-right: 12px;
+    color: var(--ink-3);
+}
+
+.article-content {
+    margin-top: 0;
+    padding: 4.6vw;
+    padding: clamp(22px, 4.6vw, var(--art-pad));
+    /* 内页米黄,不再是纯白 —— 否则正文里的拍立得(纯白框)白对白,边框看不出来。
+       这一层比页面背景 --paper 深一档,卡片边界更清楚。 */
+    background: var(--paper-leaf);
+    border: 1px solid var(--rule);
+    border-radius: var(--r-lg);
+    box-shadow: var(--sh-1);
+}
+
+/* ---------------------------------------------------------------
+   6. 正文排版
+   --------------------------------------------------------------- */
+.article-content p {
+    margin: 0 0 15px;
+    font-size: 16px;
+    line-height: 1.9;
+}
+
+.article-content > p:first-child,
+.article-content > :first-child {
+    margin-top: 0;
+}
+
+/* --- 标题:四色轮换,像换不同颜色的笔 --- */
+.article-content h2 {
+    position: relative;
+    margin: 40px 0 16px;
+    padding: 0 0 8px;
+    font-size: 21px;
+    line-height: 1.5;
+    color: var(--ink);
+    border-bottom: 1px solid var(--rule);
+}
+
+/* 底下那一道荧光笔 */
+.article-content h2::after {
+    content: "";
+    position: absolute;
+    left: 0;
+    bottom: -1px;
+    width: 58px;
+    height: 3px;
+    background: var(--c-blue);
+    border-radius: var(--r-pill);
+}
+
+/* 标题前的实心小方块 */
+.article-content h2::before {
+    content: "";
+    display: inline-block;
+    width: 9px;
+    height: 9px;
+    margin-right: 9px;
+    vertical-align: .1em;
+    background: var(--c-blue);
+    border-radius: 2px;
+    transform: rotate(45deg);
+}
+
+/* 第 2 / 3 / 4 个标题分别换成青、玫红、琥珀,第 5 个回到蓝,如此循环 */
+.article-content h2:nth-of-type(4n + 2)::after,
+.article-content h2:nth-of-type(4n + 2)::before {
+    background: var(--c-teal);
+}
+
+.article-content h2:nth-of-type(4n + 3)::after,
+.article-content h2:nth-of-type(4n + 3)::before {
+    background: var(--c-rose);
+}
+
+.article-content h2:nth-of-type(4n + 4)::after,
+.article-content h2:nth-of-type(4n + 4)::before {
+    background: var(--c-amber);
+}
+
+.article-content h3 {
+    margin: 30px 0 12px;
+    font-size: 18px;
+    line-height: 1.55;
+    color: var(--ink);
+}
+
+.article-content h3::before {
+    content: "";
+    display: inline-block;
+    width: 4px;
+    height: .92em;
+    margin-right: 9px;
+    vertical-align: -.08em;
+    background: var(--c-violet);
+    border-radius: var(--r-pill);
+}
+
+.article-content h4 {
+    margin: 24px 0 10px;
+    font-size: 16px;
+    line-height: 1.6;
+    color: var(--c-blue);
+}
+
+.article-content h5,
+.article-content h6 {
+    margin: 20px 0 8px;
+    font-size: 15px;
+    color: var(--ink-2);
+}
+
+/* --- 列表:小方块替代前导圆点 --- */
+.article-content ul {
+    margin: 0 0 15px;
+    padding-left: 24px;
+    list-style: none;
+}
+
+.article-content ul li {
+    position: relative;
+    margin-bottom: 7px;
+    padding-left: 0;
+    font-size: 16px;
+    line-height: 1.85;
+    list-style: none;
+    background: none;
+}
+
+.article-content ul li::before {
+    content: "";
+    position: absolute;
+    left: -16px;
+    top: .74em;
+    width: 7px;
+    height: 7px;
+    background: var(--c-teal);
+    border-radius: 2px;
+    transform: rotate(45deg);
+}
+
+.article-content ul ul > li::before {
+    background: transparent;
+    border: 1.5px solid var(--c-amber);
+    border-radius: 50%;
+    transform: none;
+}
+
+.article-content ol {
+    margin: 0 0 15px;
+    padding-left: 26px;
+}
+
+.article-content ol li {
+    margin-bottom: 7px;
+    font-size: 16px;
+    line-height: 1.85;
+}
+
+.article-content ol li::marker {
+    color: var(--c-blue);
+    font-weight: 700;
+}
+
+/* --- 引用 --- */
+.article-content q,
+.article-content blockquote {
+    display: block;
+    margin: 0 0 15px;
+    padding: 10px 16px;
+    font-style: normal;
+    line-height: 1.85;
+    color: var(--ink-2);
+    background: var(--paper-2);
+    border-left: 3px solid var(--c-amber);
+    border-radius: 0 var(--r-sm) var(--r-sm) 0;
+}
+
+.article-content abbr {
+    color: var(--c-violet);
+    text-decoration: underline dotted;
+    cursor: help;
+}
+
+/* --- 链接:荧光笔划过 --- */
+.article-content a {
+    color: var(--c-blue);
+    text-decoration: none;
+    background-image: linear-gradient(to top, rgba(95, 184, 240, .3) 0 .5em, transparent .5em);
+    transition: background-color var(--t-fast) ease, color var(--t-fast) ease;
+}
+
+.article-content a:hover {
+    color: var(--c-rose);
+    background-image: linear-gradient(to top, rgba(255, 122, 138, .32) 0 .5em, transparent .5em);
+}
+
+/* --- 行内代码 --- */
+.article-content code {
+    padding: .12em .42em;
+    font-family: var(--font-mono);
+    font-size: .92em;
+    color: var(--c-rose);
+    background: var(--paper-3);
+    border: 1px dashed var(--rule-dash);
+    border-radius: var(--r-xs);
+}
+
+/* --- 图片:一张贴上去的相纸 --- */
+.article-content img {
+    max-width: 100%;
+    height: auto;
+    cursor: zoom-in;
+    background: #FFFFFF;
+    border: 1px solid var(--rule-2);
+    border-radius: var(--r-sm);
+    box-shadow: var(--sh-1);
+    transition: transform var(--t-mid) var(--ease-soft), box-shadow var(--t-mid) ease;
+}
+
+.article-content img:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--sh-2);
+}
+
+/* 正文里的小图标(提示条的 warning.png 这类)不该有相纸效果 */
+.article-content img[width="16"],
+.article-content img[width="18"],
+.article-content img[width="20"],
+.article-content .tips img {
+    background: none;
+    border: 0;
+    border-radius: 0;
+    box-shadow: none;
+    cursor: var(--cur-arrow);
+    transform: none;
+}
+
+.article-content img[width="16"]:hover,
+.article-content img[width="18"]:hover,
+.article-content img[width="20"]:hover,
+.article-content .tips img:hover {
+    transform: none;
+    box-shadow: none;
+}
+
+/* ---- 拍立得:白框 + 底部留白 + 一条压在上边缘的胶带 -------------------
+   外框是 JS 包的(modern-sticker-article.js 的 buildPolaroids)——
+   <img> 是替换元素,::before/::after 不渲染,胶带挂不上去。
+
+   ⚠️ 帧自己承担倾倒(`rotate: var(--tilt)`),hover 只加 transform 位移 ——
+      独立的 rotate / translate 属性和 transform 是会叠起来的,所以照片歪着
+      也能照常"抬一下"。用 transform 写死角度就没法和 hover 位移共存了。
+   ⚠️ 内层 <img> 的相纸效果要撤干净(白框、描边、hover 位移都归外框),
+      所以选择器必须写到 (0,2,1) 以上,压过后面的 .article-content img。 */
+.article-content .xxt-photo {
+    position: relative;
+    display: inline-block;
+    max-width: 100%;
+    box-sizing: border-box;
+    padding: 10px 10px 30px;
+    margin: 6px 0 12px;
+    /* 纯白。正文那一层已经是米黄(--paper-leaf),所以白框自己就跳出来了 ——
+       这里是"最亮的一层",不要再往下调,否则又会糊在纸色里。 */
+    background: #FFFFFF;
+    border-radius: 2px;
+    /* 阴影用 --sh-2 打底(--sh-1 在米黄上偏轻,相纸浮不起来),
+       hover 再上一档到 --sh-3 */
+    box-shadow: var(--sh-2);
+    rotate: var(--tilt, 0deg);
+    transition: transform var(--t-mid) var(--ease-soft),
+                box-shadow var(--t-mid) ease;
+}
+
+.article-content .xxt-photo:hover {
+    transform: translateY(-3px);
+    box-shadow: var(--sh-3);
+}
+
+.article-content .xxt-photo > img {
+    display: block;
+    max-width: 100%;
+    height: auto;
+    border: 0;
+    border-radius: 0;
+    background: none;
+}
+
+.article-content .xxt-photo > img:hover {
+    transform: none;
+    box-shadow: none;
+}
+
+/* 胶带:压在白框上边缘,并且**往照片上压进去一点点**(::before 是绝对定位,
+   画在在流的照片之上),看着才像"把照片按住"。两道渐变叠出一层薄纸的反光。 */
+.article-content .xxt-photo::before {
+    content: "";
+    position: absolute;
+    top: -6px;
+    left: calc(50% + var(--tape-shift, 0px));
+    width: 64px;
+    height: 22px;
+    margin-left: -32px;
+    background:
+        linear-gradient(180deg,
+            rgba(255, 255, 255, .34) 0 26%,
+            rgba(255, 255, 255, 0) 26% 100%),
+        rgba(255, 210, 31, .62);
+    border-radius: 2px;
+    box-shadow: 0 1px 3px rgba(61, 58, 56, .16);
+    transform: rotate(var(--tape-tilt, -3deg));
+    pointer-events: none;
+}
+
+.article-content figure {
+    margin: 20px 0;
+    text-align: center;
+}
+
+.article-content figure img {
+    display: inline-block;
+}
+
+.article-content figcaption {
+    margin-top: 8px;
+    font-size: 12px;
+    line-height: 1.7;
+    color: var(--ink-3);
+    word-break: break-all;
+}
+
+/* --- 分隔线:手撕的虚线 --- */
+.article-content hr {
+    height: 0;
+    margin: 30px 0;
+    border: 0;
+    border-top: 2px dashed var(--rule-dash);
+}
+
+/* --- 表格 --- */
+.article-content table {
+    width: 100%;
+    margin: 0 0 15px;
+    border-collapse: collapse;
+    font-size: 14px;
+}
+
+.article-content th,
+.article-content td {
+    padding: 8px 12px;
+    border: 1px solid var(--rule);
+    text-align: left;
+}
+
+.article-content th {
+    background: var(--paper-2);
+    font-weight: 700;
+}
+
+.article-content strong {
+    color: var(--ink);
+}
+
+/* ---------------------------------------------------------------
+   6b. 折叠块(details / summary)
+   ---------------------------------------------------------------
+   一张可开合的小纸片:左侧一道薄荷色书签条,不四边全包成盒子。
+
+   ⚠️ summary 里可能嵌 h2(ninjawasinvincible 那篇的中文翻译区),
+      h2 自带的 margin / 下划线 / 荧光笔都得在这里压平,
+      否则那行会被撑成两头空的巨块。 */
+.article-content details {
+    margin: 20px 0;
+    padding: 0 16px;
+    background: #FFFDF8;
+    border: 1px solid var(--rule);
+    border-left: 4px solid var(--mint);
+    border-radius: var(--r-md);
+    overflow: hidden;
+}
+
+.article-content summary {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    /* 抵消父级左右内边距,让标题行铺满整张纸片 */
+    margin: 0 -16px;
+    padding: 12px 14px;
+    font-size: 14px;
+    font-weight: 500;
+    line-height: 1.6;
+    color: var(--ink);
+    cursor: var(--cur-point);
+    list-style: none;
+    user-select: none;
+    -webkit-user-select: none;
+    transition: background-color var(--t-fast) ease;
+}
+
+/* 去掉浏览器默认的那枚三角 */
+.article-content summary::-webkit-details-marker { display: none; }
+.article-content summary::marker { content: none; }
+
+/* 行首的小方块 —— 手账标题栏的"色块标记"语言 */
+.article-content summary::before {
+    content: "";
+    flex: none;
+    width: 9px;
+    height: 9px;
+    border-radius: 2.5px;
+    background: var(--mint);
+}
+
+/* 行尾的展开箭头(mask 裁形,颜色跟着 currentColor 之外单独给) */
+.article-content summary::after {
+    content: "";
+    flex: none;
+    margin-left: auto;
+    width: 12px;
+    height: 12px;
+    background: var(--ink-2);
+    -webkit-mask: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M9 5l7 7-7 7'/%3E%3C/svg%3E") center / contain no-repeat;
+    mask: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M9 5l7 7-7 7'/%3E%3C/svg%3E") center / contain no-repeat;
+    transition: transform var(--t-fast) ease;
+}
+
+.article-content summary:hover {
+    background: rgba(63, 199, 190, .12);
+}
+
+.article-content details[open] > summary {
+    border-bottom: 1px dashed var(--rule-dash);
+}
+
+.article-content details[open] > summary::after {
+    transform: rotate(90deg);
+}
+
+/* summary 里嵌的标题:压成行内,去掉下划线与荧光笔,
+   以及标题自带的"行首竖条"—— 那一枚会和 summary 自己的方块撞在一起 */
+.article-content summary h1,
+.article-content summary h2,
+.article-content summary h3,
+.article-content summary h4 {
+    display: inline;
+    margin: 0;
+    padding: 0;
+    font-size: 14px;
+    font-weight: 500;
+    color: inherit;
+    border-bottom: 0;
+}
+
+.article-content summary h1::before,
+.article-content summary h1::after,
+.article-content summary h2::before,
+.article-content summary h2::after,
+.article-content summary h3::before,
+.article-content summary h3::after,
+.article-content summary h4::before,
+.article-content summary h4::after {
+    display: none;
+}
+
+/* 展开后的内容 */
+.article-content details > summary + * {
+    margin-top: 12px;
+}
+
+.article-content details > *:last-child {
+    margin-bottom: 14px;
+}
+
+.article-content details img {
+    display: block;
+    margin-left: auto;
+    margin-right: auto;
+}
+
+/* 提示条里的折叠块:收起首尾外边距,别把 --cream 底撑出一圈空 */
+.tips details:first-child { margin-top: 0; }
+.tips details:last-child { margin-bottom: 0; }
+
+/* ---------------------------------------------------------------
+   7. 提示条(投稿声明 / 内容过时警告)
+   --------------------------------------------------------------- */
+.tips {
+    position: relative;
+    margin: 0 0 18px;
+    padding: 12px 16px 12px 18px;
+    font-size: 13px;
+    line-height: 1.8;
+    color: var(--ink-2);
+    background: var(--cream);
+    border: 0;
+    border-radius: var(--r-md);
+    box-shadow: var(--sh-1);
+}
+
+.tips::before {
+    content: "";
+    position: absolute;
+    left: 0;
+    top: 10px;
+    bottom: 10px;
+    width: 4px;
+    background: var(--c-amber);
+    border-radius: var(--r-pill);
+}
+
+.tips p {
+    margin: 0;
+    font-size: 13px;
+    line-height: 1.8;
+}
+
+.tips p + p {
+    margin-top: 4px;
+}
+
+.tips img {
+    vertical-align: middle;
+    background: none;
+    border: 0;
+    box-shadow: none;
+}
+
+/* 顶上有胶带的那种 */
+.tips::after {
+    content: "";
+    position: absolute;
+    right: 18px;
+    top: -9px;
+    width: 62px;
+    height: 18px;
+    background: rgba(255, 210, 31, .78);
+    border-radius: 1px;
+    transform: rotate(-2.4deg);
+    pointer-events: none;
+}
+
+/* ---------------------------------------------------------------
+   8. 树形目录(.nbttree)
+   --------------------------------------------------------------- */
+.nbttree {
+    margin: 0 0 20px;
+    padding: 16px 18px;
+    font-size: 14px;
+    line-height: 1.9;
+    background: var(--paper-2);
+    border: 1px dashed var(--rule-dash);
+    border-radius: var(--r-md);
+}
+
+.nbttree ul {
+    margin: 0;
+    padding-left: 18px;
+    list-style: none;
+}
+
+.nbttree li {
+    position: relative;
+    margin-bottom: 2px;
+    padding-left: 0;
+    font-size: 14px;
+    line-height: 1.9;
+    background: none;
+}
+
+/* 树形缩进的虚线引导 */
+.nbttree li::before {
+    content: "";
+    position: absolute;
+    left: -11px;
+    top: 0;
+    bottom: 0;
+    width: 1px;
+    height: auto;
+    background: none;
+    border-left: 1px dashed var(--rule-2);
+    transform: none;
+    border-radius: 0;
+}
+
+.nbttree > ul > li::before {
+    display: none;
+}
+
+.nbttree strong {
+    color: var(--c-blue);
+}
+
+.nbttree i {
+    display: none;   /* 历史上用 Font Awesome,页面并未引字体 —— 内容保留,只不显示 */
+}
+
+/* ---------------------------------------------------------------
+   9. 代码块
+   image-viewer.js 会把 .article-content pre 包成 .xxt-code-block
+   （标题栏 + pre + 复制按钮）
+   --------------------------------------------------------------- */
+.xxt-code-block {
+    position: relative;
+    margin: 18px 0;
+    overflow: hidden;
+    background: #FFFFFF;
+    border: 1px solid var(--rule-2);
+    border-radius: var(--r-md);
+    box-shadow: var(--sh-1);
+}
+
+/* 标题栏:一条贴纸标签 */
+.xxt-code-block .xxt-code-title {
+    height: auto;
+    padding: 6px 64px 6px 14px;
+    font-family: var(--font);
+    font-size: 12px;
+    line-height: 1.6;
+    color: var(--ink-2);
+    background: var(--paper-2);
+    border-bottom: 1px dashed var(--rule-dash);
+}
+
+.xxt-code-block .xxt-code-title::before {
+    content: "";
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    margin-right: 7px;
+    vertical-align: .02em;
+    background: var(--c-violet);
+    border-radius: 2px;
+    transform: rotate(45deg);
+}
+
+.xxt-code-block pre {
+    margin: 0;
+    padding: 14px 16px;
+    overflow-x: auto;
+    font-family: var(--font-mono);
+    font-size: 13px;
+    line-height: 1.7;
+    color: var(--ink);
+    white-space: pre;
+    background: #FFFFFF;
+    border: 0;
+    border-radius: 0;
+    -ms-overflow-style: -ms-autohiding-scrollbar;
+}
+
+.xxt-code-block pre code {
+    padding: 0;
+    font-family: inherit;
+    font-size: inherit;
+    color: inherit;
+    background: none;
+    border: 0;
+    border-radius: 0;
+}
+
+/* 复制按钮:CSS 画的双层方框,不依赖 copy.png
+   点击后走三段反馈:方框缩小消失 → 绿色对勾浮出 → 还原 */
+.xxt-code-block .xxt-copy-btn {
+    position: absolute;
+    top: 4px;
+    right: 6px;
+    width: 26px;
+    height: 24px;
+    cursor: var(--cur-point);
+    background: none;
+    border: 0;
+    border-radius: var(--r-sm);
+    opacity: .55;
+    transition: opacity var(--t-fast) ease, background-color var(--t-fast) ease;
+}
+
+.xxt-code-block .xxt-copy-btn::before,
+.xxt-code-block .xxt-copy-btn::after {
+    content: "";
+    position: absolute;
+    width: 9px;
+    height: 11px;
+    border: 1.5px solid var(--ink-2);
+    border-radius: 2px;
+    transition: transform 160ms var(--ease-soft), opacity 160ms ease;
+}
+
+.xxt-code-block .xxt-copy-btn::before {
+    top: 5px;
+    left: 6px;
+}
+
+.xxt-code-block .xxt-copy-btn::after {
+    top: 9px;
+    left: 10px;
+    background: var(--paper-2);
+}
+
+.xxt-code-block:hover .xxt-copy-btn {
+    opacity: .9;
+}
+
+.xxt-code-block .xxt-copy-btn:hover {
+    opacity: 1;
+    background: var(--paper-3);
+}
+
+/* ① 按下:两个方框一起缩小消失 */
+.xxt-code-block .xxt-copy-btn.xxt-copy-shrink {
+    opacity: 1;
+    background: none;
+}
+
+.xxt-code-block .xxt-copy-btn.xxt-copy-shrink::before,
+.xxt-code-block .xxt-copy-btn.xxt-copy-shrink::after {
+    opacity: 0;
+    transform: scale(.2);
+}
+
+/* ② 绿色对勾浮出(圆底 + 白勾,图形与关闭圆点同源,走 CSS 变量着色) */
+.xxt-code-block .xxt-copy-btn.xxt-copy-check {
+    opacity: 1;
+    background: none;
+    --xxt-check-bg: var(--c-green);
+    --xxt-check: #FFFFFF;
+}
+
+/* 两枚伪元素在"对勾态"里不该再沿方形做过渡,直接交给动画 */
+.xxt-code-block .xxt-copy-btn.xxt-copy-check::before,
+.xxt-code-block .xxt-copy-btn.xxt-copy-check::after {
+    transition: none;
+}
+
+.xxt-code-block .xxt-copy-btn.xxt-copy-check::before {
+    content: "";
+    top: 0;
+    left: 1px;
+    width: 24px;
+    height: 24px;
+    border: 0;
+    border-radius: 50%;
+    opacity: 1;
+    transform: none;
+    background: var(--c-green);
+    box-shadow: 0 2px 6px -1px rgba(47, 158, 63, .5);
+    animation: copyCheckIn 300ms var(--ease-pop) both;
+}
+
+.xxt-code-block .xxt-copy-btn.xxt-copy-check::after {
+    content: "";
+    top: 0;
+    left: 1px;
+    width: 24px;
+    height: 24px;
+    border: 0;
+    border-radius: 50%;
+    opacity: 1;
+    transform: none;
+    background:
+        url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M4.6 8.3 L6.9 10.6 L11.4 5.6' fill='none' stroke='%23fff' stroke-width='1.9' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E")
+        center / 15px 15px no-repeat;
+    animation: copyCheckIn 300ms var(--ease-pop) both;
+}
+
+@keyframes copyCheckIn {
+    from { transform: scale(.3); opacity: 0; }
+    60%  { transform: scale(1.12); opacity: 1; }
+    to   { transform: scale(1); opacity: 1; }
+}
+
+/* ③ 对勾淡出,交还复制按钮 */
+.xxt-code-block .xxt-copy-btn.xxt-copy-out,
+.xxt-code-block .xxt-copy-btn.xxt-copy-out::before,
+.xxt-code-block .xxt-copy-btn.xxt-copy-out::after {
+    opacity: 0;
+    transition: opacity 180ms ease;
+}
+
+/* --- 带表格行号列的代码块(Typora 导出的结构) --- */
+.code-container {
+    position: relative;
+    margin: 18px 0;
+    overflow: hidden;
+    background: #FFFFFF;
+    border: 1px solid var(--rule-2);
+    border-radius: var(--r-md);
+    box-shadow: var(--sh-1);
+}
+
+.table-container {
+    overflow-x: auto;
+}
+
+.code-container table {
+    width: 100%;
+    margin: 0;
+    border: 0;
+    border-collapse: collapse;
+    font-size: 13px;
+}
+
+.code-container td {
+    padding: 0;
+    border: 0;
+    vertical-align: top;
+}
+
+/* 行号列 */
+.code-container td.gutter {
+    width: 1%;
+    padding: 14px 0 14px 12px;
+    font-family: var(--font-mono);
+    font-size: 12px;
+    line-height: 1.7;
+    color: var(--ink-3);
+    text-align: right;
+    white-space: nowrap;
+    background: var(--paper-2);
+    border-right: 1px dashed var(--rule-dash);
+    user-select: none;
+}
+
+.code-container td.gutter pre {
+    margin: 0;
+    padding: 0;
+    font-family: inherit;
+    font-size: inherit;
+    line-height: inherit;
+    color: inherit;
+    background: none;
+    white-space: pre;
+}
+
+/* 代码列 */
+.code-container td.code {
+    padding: 14px 16px;
+}
+
+/* 表格结构里,内层不再重复画边框 */
+.code-container .xxt-code-block {
+    margin: 0;
+    border: 0;
+    border-radius: 0;
+    box-shadow: none;
+}
+
+.code-container .xxt-code-block .xxt-code-title {
+    margin: 0 0 8px;
+    padding: 0 0 6px;
+    background: none;
+    border-bottom: 1px dashed var(--rule-dash);
+}
+
+.code-container .xxt-code-block pre {
+    padding: 0;
+}
+
+/* 这个 .copy-btn 是 Typora 导出的残留(依赖未引入的 Font Awesome),让它别占位 */
+.code-container > .copy-btn {
+    display: none;
+}
+
+/* --- 语法高亮:沿用可读的浅色方案,只把冷色往暖里挪了一点 --- */
+.hljs-punctuation { color: #3D3A38; }
+.hljs-attr        { color: #C2453C; }
+.hljs-string      { color: #A31515; }
+.hljs-number      { color: #0B7A4B; }
+.hljs-keyword     { color: #1B4FD8; }
+.hljs-comment     { color: #6E8B5A; font-style: italic; }
+.hljs-function    { color: #795E26; }
+.hljs-type        { color: #267F99; }
+.hljs-built_in    { color: #1B4FD8; }
+.hljs-literal     { color: #1B4FD8; }
+.hljs-title       { color: #795E26; }
+.hljs-params      { color: #3D3A38; }
+.hljs-meta        { color: #8C8578; }
+.hljs-tag,
+.hljs-name        { color: #800000; }
+.hljs-selector-class,
+.hljs-selector-id { color: #800000; }
+
+/* ---------------------------------------------------------------
+   10. 图片查看器
+   打开:淡入 + 纸片放大;关闭:反向播放(见 .closing)
+   --------------------------------------------------------------- */
+.image-viewer-modal {
+    display: none;
+    position: fixed;
+    z-index: 9999;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(45, 38, 32, .88);
+}
+
+.image-viewer-modal.active {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    animation: viewerFadeIn 280ms ease both;
+}
+
+.image-viewer-content {
+    position: relative;
+    max-width: min(92vw, 1100px);
+    max-height: 90vh;
+    padding: 10px;
+    background: var(--paper);
+    border-radius: var(--r-md);
+    box-shadow: var(--sh-2);
+}
+
+.image-viewer-modal.active .image-viewer-content {
+    animation: viewerIn 320ms var(--ease-soft) both;
+}
+
+/* 退场:蒙层淡出 + 纸片缩回,与打开方向相反 */
+.image-viewer-modal.closing {
+    animation: viewerFadeOut 260ms ease both;
+}
+
+.image-viewer-modal.closing .image-viewer-content {
+    animation: viewerOut 260ms var(--ease-soft) both;
+}
+
+.image-viewer-img {
+    display: block;
+    max-width: 100%;
+    max-height: 82vh;
+    object-fit: contain;
+    border-radius: var(--r-sm);
+}
+
+.image-viewer-close,
+.image-viewer-nav {
+    position: absolute;
+    padding: 6px;
+    background: var(--paper);
+    border: 1px solid var(--rule-2);
+    border-radius: 50%;
+    box-shadow: var(--sh-1);
+    cursor: var(--cur-point);
+    user-select: none;
+    transition: background-color var(--t-fast) ease, transform var(--t-fast) var(--ease-soft);
+}
+
+/* 关闭:与侧栏小窗口同一枚 macOS 交通灯圆点
+   平时只是一枚红点,hover 浮出 ✕;新主题下由 modern-sticker-article.js
+   把 <img> 换成 <svg class="xxt-ic"><use href="#i-close-dot">
+   (素材 imageclose.png 在 XXT_ICON_MAP 里映射到 i-close-dot) */
+.image-viewer-close {
+    top: -13px;
+    right: -13px;
+    width: 34px;
+    height: 34px;
+    padding: 0;
+    --xxt-dot: #FF5F57;
+    --xxt-dot-x: transparent;
+}
+
+/* ⚠️ hover 里**不要**再写 background —— `.image-viewer-close:hover` 的特异性是 (0,2,0),
+   会盖过下面 `svg.image-viewer-close` 的 (0,1,1):一 hover 就冒出个纸色圆底,
+   红点外面套一圈白环。矢量化之后这个圆底本来就要撤掉,所以这里更不该再加。 */
+.image-viewer-close:hover {
+    --xxt-dot-x: rgba(0, 0, 0, .58);
+}
+
+/* 矢量化后 <img> 变成同一个元素上的 <svg class="xxt-ic image-viewer-close">
+   —— 用 svg 前缀把特异性抬到 (0,1,1),盖过全局 .xxt-ic 的 inline-block。
+
+   ⚠️ 这里**不画圆**:圆点由 sprite 里的 #i-close-dot 自己画(和 .vista-close-btn /
+   .sidebar-close-btn 同一套)。所以纸底和描边都要撤掉,只留投影 ——
+   否则 34px 的红点外面会再套一圈 1px 纸色描边,看着像个"圆环套圆点"。
+   (同理别用 ::before / ::after 补圆:会叠成两个。) */
+svg.image-viewer-close {
+    padding: 0;
+    display: block;
+    width: 34px;
+    height: 34px;
+    flex: none;
+    box-sizing: border-box;
+    border: none;
+    background: none;
+    border-radius: 50%;
+    box-shadow: 0 2px 8px -2px rgba(61, 58, 56, .45);
+    /* 红点走 symbol 自带的 fill="var(--xxt-dot)";
+       currentColor 只是给"万一 sprite 缺失"时的兜底色 */
+    fill: currentColor;
+}
+
+svg.image-viewer-close use {
+    pointer-events: none;
+}
+
+/* 左右切换:矢量图标,圆纸底 */
+.image-viewer-nav {
+    top: 50%;
+    width: 40px;
+    height: 40px;
+    padding: 9px;
+    transform: translateY(-50%);
+    color: var(--ink);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+svg.image-viewer-nav {
+    padding: 9px;
+    width: 40px;
+    height: 40px;
+    flex: none;
+}
+
+/* 命中测试落到 <svg> 本体上(和关闭键一致)——
+   走委托的 closest('.image-viewer-prev') 从哪儿都能找到,
+   但让 padding 区域也算点击有助于小屏点得准 */
+svg.image-viewer-nav use {
+    pointer-events: none;
+}
+
+.image-viewer-prev {
+    left: -18px;
+}
+
+.image-viewer-next {
+    right: -18px;
+}
+
+.image-viewer-nav:hover {
+    background: #FFFFFF;
+    color: var(--c-teal);
+}
+
+.image-viewer-prev:hover {
+    transform: translateY(-50%) translateX(-2px);
+}
+
+.image-viewer-next:hover {
+    transform: translateY(-50%) translateX(2px);
+}
+
+/* 不可用时(index=0 / 末张)只压暗,不做 hover 位移 */
+.image-viewer-nav.is-disabled {
+    opacity: .38;
+    cursor: not-allowed;
+}
+
+.image-viewer-nav.is-disabled:hover {
+    transform: translateY(-50%);
+    color: var(--ink);
+    background: var(--paper);
+}
+
+@keyframes viewerFadeIn {
+    from { opacity: 0; }
+    to   { opacity: 1; }
+}
+
+@keyframes viewerFadeOut {
+    from { opacity: 1; }
+    to   { opacity: 0; }
+}
+
+@keyframes viewerIn {
+    from { opacity: 0; transform: scale(.94); }
+    to   { opacity: 1; transform: scale(1); }
+}
+
+@keyframes viewerOut {
+    from { opacity: 1; transform: scale(1); }
+    to   { opacity: 0; transform: scale(.94); }
+}
+
+/* ---------------------------------------------------------------
+   11. 页脚(留言区上方)
+   --------------------------------------------------------------- */
+.giscus {
+    max-width: var(--art-max);
+    margin: 26px auto 0;
+    padding: 0 16px;
+}
+
+/* 评论区的外框贴在 iframe 上(不是挂在 .giscus 上):
+   .giscus 的内容盒正好是 art-max - 32,和 .article-content 严格对齐;
+   给容器加边框 + padding 会让卡片左右各缩进去,两块纸就对不齐了。
+   ⚠️ 描边用 box-shadow 的 1px 环,不用真 border —— iframe 的 height 是 giscus
+      按内容量算好写进行内的,border 会占布局:content-box 下 width:100% + 2px
+      边框就是横向溢出 2px,而 box-sizing:border-box 又会把底部内容切掉 2px。
+      环不出现在布局里,两个问题一起没有。
+   ⚠️ iframe 是替换元素,圆角要配 overflow:hidden 才裁得干净。
+   ⚠️ 底色跟 giscus 主题里的 --color-canvas-default 是同一个值
+      (css/giscus-sticker-theme.css),两边写岔了会在圆角处露出一圈别的颜色。 */
+.giscus iframe {
+    display: block;
+    width: 100%;
+    background: var(--paper-leaf);
+    border: 0;
+    border-radius: var(--r-lg);
+    box-shadow: 0 0 0 1px var(--rule), var(--sh-1);
+    overflow: hidden;
+}
+
+/* ---------------------------------------------------------------
+   12. 响应式
+   --------------------------------------------------------------- */
+@media screen and (max-width: 900px) {
+    .article-content {
+        --art-pad: 26px;
+    }
+
+    .article-content p,
+    .article-content ul li,
+    .article-content ol li {
+        font-size: 17px;
+    }
+}
+
+@media screen and (max-width: 620px) {
+    body {
+        padding-bottom: 40px;
+    }
+
+    .header-image {
+        height: 176px;
+    }
+
+    .title-overlay {
+        bottom: 16px;
+        width: calc(100% - 24px);
+    }
+
+    .title-overlay h1 {
+        font-size: 19px;
+    }
+
+    .title-overlay h1::after {
+        width: 48px;
+        height: 3px;
+        margin-top: 9px;
+    }
+
+    .gradient-divider {
+        justify-content: center;
+        gap: 6px;
+        padding: 8px 12px;
+        margin-bottom: 16px;
+    }
+
+    .button {
+        padding: 5px 11px;
+        font-size: 12px;
+    }
+
+    .content-container {
+        padding: 0 10px;
+    }
+
+    .article-content {
+        --art-pad: 18px;
+        border-radius: var(--r-md);
+    }
+
+    .article-content p,
+    .article-content ul li,
+    .article-content ol li {
+        font-size: 16px;
+    }
+
+    .article-content h2 {
+        margin-top: 32px;
+        font-size: 19px;
+    }
+
+    .article-content h3 {
+        font-size: 17px;
+    }
+
+    .code-container td.code {
+        padding: 12px;
+    }
+
+    .code-container .xxt-code-block pre,
+    .xxt-code-block pre {
+        font-size: 12px;
+    }
+
+    .image-viewer-close {
+        top: -10px;
+        right: -6px;
+    }
+
+    .image-viewer-prev {
+        left: -8px;
+    }
+
+    .image-viewer-next {
+        right: -8px;
+    }
+}
+
+/* ---------------------------------------------------------------
+   13. 打印:只留正文
+   --------------------------------------------------------------- */
+@media print {
+    body {
+        padding: 0;
+        background: #FFFFFF;
+    }
+
+    body::before,
+    .gradient-divider,
+    .giscus,
+    .image-viewer-modal,
+    .header-image,
+    .title-overlay,
+    .tips::after {
+        display: none !important;
+    }
+
+    .article-content,
+    .author-info,
+    .tips,
+    .nbttree,
+    .xxt-code-block,
+    .code-container {
+        border-color: #CCCCCC;
+        box-shadow: none;
+    }
+}
+
+/* ---------------------------------------------------------------
+   14. 尊重"减少动态效果"
+   --------------------------------------------------------------- */
+@media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+        animation-duration: .01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: .01ms !important;
+        scroll-behavior: auto !important;
+    }
+
+    .article-content img:hover,
+    .button:hover {
+        transform: none;
+    }
+}
+
+/* ---------------------------------------------------------------
+   LaTeX 公式(katex-loader.js 运行时生成 .xxt-math 包裹层)
+   KaTeX 负责字形,这里只管排版 + 让独行公式像一张贴上去的小纸片。
+   --------------------------------------------------------------- */
+.xxt-math-inline {
+    display: inline;
+    white-space: nowrap;
+}
+
+.xxt-math-inline .katex {
+    font-size: 1.04em;
+    color: inherit;
+}
+
+/* 独行公式:居中纸片,和代码块/提示框同一套视觉语言 */
+.xxt-math-display {
+    display: block;
+    margin: 14px 0;
+    padding: 14px 16px;
+    overflow-x: auto;
+    overflow-y: hidden;
+    text-align: center;
+    background: var(--paper-2);
+    border: 1px solid var(--rule);
+    border-radius: var(--r-md);
+    box-shadow: inset 0 1px 2px rgba(61, 58, 56, .05);
+    -webkit-overflow-scrolling: touch;
+}
+
+.xxt-math-display .katex {
+    color: var(--ink);
+}
+
+/* 长公式横向滚动时留一点底部间隙,避免滚动条贴住圆角 */
+.xxt-math-display::-webkit-scrollbar {
+    height: 8px;
+}
+
+.xxt-math-display::-webkit-scrollbar-thumb {
+    background: var(--rule-2);
+    border-radius: 4px;
+}
+
+/* ---------------------------------------------------------------
+   图标交接门:首屏不再闪一下(与现代化主题 CSS 第 14k 节同一件事)
+   ---------------------------------------------------------------
+   文章页的图标替换在 articles/modern-sticker-article.js 里,选择器带 `[width]` 闸门
+   —— 正文里的**截图**大多也是 .png、文件名还会和图标撞车(见那个文件顶部的长注释),
+   所以下面这份名单必须**原样带上 [width]**,少一个属性就会把整张截图藏起来。
+
+   ⚠️ 名单要与 articles/modern-sticker-article.js 的 ICON_SELECTOR 逐条一致 ——
+      改一边就得改另一边。
+   --------------------------------------------------------------- */
+html.xxt-ic-pending img[width][src$=".png"]:not(.uac-close-btn),
+html.xxt-ic-pending img[width][src$=".gif"]:not(.uac-close-btn),
+html.xxt-ic-pending img[src*="images/icons/"]:not(.uac-close-btn) {
+    visibility: hidden;
+}
+
+/* 正文里的链接:浏览器对 a[href] 有内置的 pointer 光标,
+   不显式写就还是系统手形(而顶层那份 CSS 在手账主题下不加载)。 */
+a {
+    cursor: var(--cur-point);
+}

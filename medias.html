@@ -8,7 +8,29 @@
     <meta name="description" content="收集各类精彩视频">
     <link rel="icon" href="medias.ico" type="image/x-icon">
     <!-- <script src="https://xxtsoft.top/live2d-widget/dist/autoload.js"></script> -->
-    <link rel="stylesheet" href="style.css" type="text/css" id="themeCss" />
+    <script>
+        (function () {
+            var css = 'style.css';
+            try {
+                var t = localStorage.getItem('theme') || '';
+                if (/^[A-Za-z0-9._-]+\.css$/.test(t)) css = t;
+            } catch (err) { }
+            if (css === 'modern-sticker.css') {
+                var de = document.documentElement;
+                de.className = (de.className ? de.className + ' ' : '') + 'xxt-ic-pending';
+                var pre = document.createElement('link');
+                pre.rel = 'preload';
+                pre.as = 'script';
+                pre.href = 'js/modern-sticker-icons.js';
+                (document.head || de).appendChild(pre);
+                setTimeout(function () {
+                    de.className = de.className.split('xxt-ic-pending').join(' ')
+                        .replace(/\s{2,}/g, ' ').replace(/^\s+|\s+$/g, '');
+                }, 2000);
+            }
+            document.write('<link rel="stylesheet" type="text/css" id="themeCss" href="' + css + '">');
+        })();
+    </script>
     <script src="js/theme-loader.js"></script>
     <script defer src="js/ripple.js"></script>
 </head>
@@ -43,7 +65,6 @@
             </div>
             <p><img src="images/icons/dot.png" alt="" width="15" height="15" /> 线路1 畅通</p>
             <div class="video-list" id="videoList">
-                <!-- 由 media/medias.js 从 media/videos.js 动态渲染 -->
             </div>
         </div>
         <div class="sidebar">
@@ -51,7 +72,6 @@
                 <div class="window-titlebar">统计</div>
                 <div class="window-content">
                     <ul class="itemlist" id="mediaStats">
-                        <!-- 由 media/medias.js 从视频数据动态渲染分类统计 -->
                     </ul>
                 </div>
             </div>
@@ -75,7 +95,5 @@
         </div>
     </div>
 <script src="media/videos.js"></script>
-<script src="media/medias.js"></script>
-<script>(function(){var s1=document.createElement('script');s1.src='js/supabase.js';document.head.appendChild(s1);s1.onload=function(){var s2=document.createElement('script');s2.src='js/auth.js';document.head.appendChild(s2);};})();</script>
-</body>
+<script src="media/medias.js"></script></body>
 </html>

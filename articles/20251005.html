@@ -5,7 +5,32 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>SKToolBox - 打包自己的单文件工具箱 ⭐ xxtsoft</title>
-    <link rel="stylesheet" href="style.css">
+    <script>
+        (function () {
+            var css = 'style.css';
+            try {
+                if (localStorage.getItem('theme') === 'modern-sticker.css') {
+                    css = 'modern-sticker-article.css';
+                } else if ((localStorage.getItem('article_css') || 'default') === 'zuowen') {
+                    css = 'zuowen-style.css';
+                }
+            } catch (err) { }
+            if (css === 'modern-sticker-article.css') {
+                var de = document.documentElement;
+                de.className = (de.className ? de.className + ' ' : '') + 'xxt-ic-pending';
+                var pre = document.createElement('link');
+                pre.rel = 'preload';
+                pre.as = 'script';
+                pre.href = '../js/modern-sticker-icons.js';
+                (document.head || de).appendChild(pre);
+                setTimeout(function () {
+                    de.className = de.className.split('xxt-ic-pending').join(' ')
+                        .replace(/\s{2,}/g, ' ').replace(/^\s+|\s+$/g, '');
+                }, 2000);
+            }
+            document.write('<link rel="stylesheet" href="' + css + '">');
+        })();
+    </script>
 </head>
 
 <body>
@@ -30,7 +55,7 @@
         </div>
         <div class="article-content">
             <div class="tips">
-                <p><img src="../images/icons/warning.png" alt="" width="16" height="16" style="vertical-align: middle;" /><b> 警告</b></p>
+                <p><img src="../images/icons/warning.png" alt="" width="16" height="16" style="vertical-align: middle;" /><b> 提示</b></p>
                 <p>本文由 @SK 在本站投稿，著作权归其所有，本文不代表 xxtsoft 观点和立场</p>
             </div>
             <h2 id="简介下载">简介&amp;下载</h2>

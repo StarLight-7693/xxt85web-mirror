@@ -6,7 +6,29 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>xxtsoft · 文章</title>
     <link rel="icon" href="https://xxtsoft.top/images/icons/disconnected.ico" type="image/x-icon">
-    <link rel="stylesheet" href="style.css" type="text/css" id="themeCss" />
+    <script>
+        (function () {
+            var css = 'style.css';
+            try {
+                var t = localStorage.getItem('theme') || '';
+                if (/^[A-Za-z0-9._-]+\.css$/.test(t)) css = t;
+            } catch (err) { }
+            if (css === 'modern-sticker.css') {
+                var de = document.documentElement;
+                de.className = (de.className ? de.className + ' ' : '') + 'xxt-ic-pending';
+                var pre = document.createElement('link');
+                pre.rel = 'preload';
+                pre.as = 'script';
+                pre.href = 'js/modern-sticker-icons.js';
+                (document.head || de).appendChild(pre);
+                setTimeout(function () {
+                    de.className = de.className.split('xxt-ic-pending').join(' ')
+                        .replace(/\s{2,}/g, ' ').replace(/^\s+|\s+$/g, '');
+                }, 2000);
+            }
+            document.write('<link rel="stylesheet" type="text/css" id="themeCss" href="' + css + '">');
+        })();
+    </script>
     <script src="js/theme-loader.js"></script>
     <script defer src="js/ripple.js"></script>
 </head>
@@ -34,7 +56,5 @@
     <p align="center"><font size="5">返回主页就能看到所有文章</font></p>
     <div style="text-align: center;">
         <img src="images/icons/dot.png" width="15" height="15"><a href="https://xxtsoft.top">返回主页</a>
-    </div>
-<script>(function(){var s1=document.createElement('script');s1.src='js/supabase.js';document.head.appendChild(s1);s1.onload=function(){var s2=document.createElement('script');s2.src='js/auth.js';document.head.appendChild(s2);};})();</script>
-</body>
+    </div></body>
 </html>

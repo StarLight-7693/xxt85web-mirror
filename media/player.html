@@ -5,10 +5,32 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>xxtsoft · 媒体库播放器</title>
-    <link rel="stylesheet" href="../style.css" type="text/css" id="themeCss" />
+    <script>
+        (function () {
+            var css = 'style.css';
+            try {
+                var t = localStorage.getItem('theme') || '';
+                if (/^[A-Za-z0-9._-]+\.css$/.test(t)) css = t;
+            } catch (err) { }
+            if (css === 'modern-sticker.css') {
+                var de = document.documentElement;
+                de.className = (de.className ? de.className + ' ' : '') + 'xxt-ic-pending';
+                var pre = document.createElement('link');
+                pre.rel = 'preload';
+                pre.as = 'script';
+                pre.href = '../js/modern-sticker-icons.js';
+                (document.head || de).appendChild(pre);
+                setTimeout(function () {
+                    de.className = de.className.split('xxt-ic-pending').join(' ')
+                        .replace(/\s{2,}/g, ' ').replace(/^\s+|\s+$/g, '');
+                }, 2000);
+            }
+            document.write('<link rel="stylesheet" type="text/css" id="themeCss" href="../' + css + '">');
+        })();
+    </script>
     <script src="../js/theme-loader.js"></script>
     <link rel="stylesheet" href="style.css" type="text/css" />
-    <link rel="icon" href="medias.ico" type="image/x-icon">
+    <link rel="icon" href="../medias.ico" type="image/x-icon">
     <script src="videos.js"></script>
     <script src="player.js"></script>
 </head>
@@ -24,7 +46,6 @@
             <h2 class="video-title" id="video-title"></h2>
 
             <div class="video-player" id="video-player">
-                <!-- 由 JS 动态填充 -->
             </div>
 
             <div class="video-info">
@@ -33,14 +54,12 @@
             </div>
         </div>
 
-        <!-- 下载区域（动态填充） -->
         <div class="download-section" id="download-section" style="display:none;">
             <h3>下载视频原片</h3>
             <p id="download-note">您正在试看标清影片，单击下方链接下载高清视频</p>
             <div id="download-links"></div>
         </div>
 
-        <!-- 未找到视频时的提示 -->
         <div id="not-found" style="display:none; text-align:center; padding:40px;">
             <h2>视频未找到</h2>
             <p>请检查链接是否正确，或返回 <a href="../medias.html">媒体库首页</a>。</p>

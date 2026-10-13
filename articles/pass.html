@@ -5,7 +5,32 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>无题 ⭐ xxtsoft</title>
-    <link rel="stylesheet" href="style.css">
+    <script>
+        (function () {
+            var css = 'style.css';
+            try {
+                if (localStorage.getItem('theme') === 'modern-sticker.css') {
+                    css = 'modern-sticker-article.css';
+                } else if ((localStorage.getItem('article_css') || 'default') === 'zuowen') {
+                    css = 'zuowen-style.css';
+                }
+            } catch (err) { }
+            if (css === 'modern-sticker-article.css') {
+                var de = document.documentElement;
+                de.className = (de.className ? de.className + ' ' : '') + 'xxt-ic-pending';
+                var pre = document.createElement('link');
+                pre.rel = 'preload';
+                pre.as = 'script';
+                pre.href = '../js/modern-sticker-icons.js';
+                (document.head || de).appendChild(pre);
+                setTimeout(function () {
+                    de.className = de.className.split('xxt-ic-pending').join(' ')
+                        .replace(/\s{2,}/g, ' ').replace(/^\s+|\s+$/g, '');
+                }, 2000);
+            }
+            document.write('<link rel="stylesheet" href="' + css + '">');
+        })();
+    </script>
 </head>
 <body>
     <div class="header-image">

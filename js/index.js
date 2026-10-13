@@ -1,4 +1,57 @@
 window.xxtArticleData = {
+    "cppsekai-web": {
+        title: "CppSekai 官方网站",
+        author: "xxt8582753",
+        desc: "关于 CppSekai 项目的更多信息",
+        date: "2025年10月4日",
+        tags: ["coding", "school"],
+        url: "support/CppSekai/index.html"
+    },
+    "scanning.html": {
+        title: "人是怎么看网页的",
+        author: "xxt8582753",
+        desc: "为了改自己的网站，我翻了很多资料，和大家分享一些关于人眼阅读模式的趣谈",
+        img: "",
+        date: "2026年10月1日",
+        tags: ["rant", "coding", "tutorial"],
+        url: "articles/scanning.html"
+    },
+    "fucklibmgr.html": {
+        title: "info比warning更温暖",
+        author: "xxt8582753",
+        desc: "站长去趟学校图书馆，偶遇雷霆管理员，拼尽全力无法战胜",
+        img: "",
+        date: "2026年9月30日",
+        tags: ["rant", "school"],
+        url: "articles/fucklibmgr.html"
+    },
+    "haitangxiangyouji.html": {
+        title: "海棠乡游记",
+        author: "cookie",
+        desc: "时隔一年，我终于拿起真正属于我的笔，用眼睛看这个世界。一个被日程表拖住的高中生，讲讲这两年的经历",
+        img: "",
+        date: "2026年9月26日",
+        tags: ["rant", "school"],
+        url: "articles/haitangxiangyouji.html"
+    },
+    "cppsekai.html": {
+        title: "专为班级希沃设计的PJSK模拟器——CppSekai",
+        author: "xxt8582753",
+        desc: "课间十分钟，教室变机厅，将pjsk移植到Windows！",
+        img: "",
+        date: "2026年9月25日",
+        tags: ["coding", "school"],
+        url: "articles/cppsekai.html"
+    },
+    "kb5124008.html": {
+        title: "疑似KB5124008引起的希沃展台ks.sys冲突蓝屏问题",
+        author: "xxt8582753",
+        desc: "我只是说，疑似嗷，别骂我……",
+        img: "",
+        date: "2026年9月11日",
+        tags: ["coding", "tutorial"],
+        url: "articles/kb5124008.html"
+    },
     "taiko.html": {
         title: "填补株洲市音游教育的空白！南方中学“咚咚雷音祭”计划！",
         author: "xxt8582753",
@@ -50,9 +103,9 @@ window.xxtArticleData = {
     "unsleepnight.html": {
         title: "不眠之夜",
         author: "xxt8582753",
-        desc: "《我和AbCd白嫖了一台12代i5电脑》续作",
+        desc: "《我和AbCd白嫖了一台12代i5电脑》续作，和年级组组长斗智斗勇，欸不是老弟你有啥实力啊",
         img: "",
-        date: "2026年7月3日 - 正在编辑",
+        date: "2026年7月3日",
         disturbing: true,
         tags: ["school", "rant"],
         uac: true,
@@ -179,7 +232,7 @@ window.xxtArticleData = {
     },
     "ninjawasinvincible.html": {
         title: "仁者无敌 - The True Power Behind Invincibility",
-        author: "Kingstar",
+        author: "kingstar",
         desc: "仁者无敌的真正力量在于通过仁爱与共识激发合作，使领导者和追随者朝向共同目标前进，从而战胜一切挑战。",
         img: "",
         date: "2026年2月6日",
@@ -445,7 +498,7 @@ window.xxtArticleData = {
         url: "support/QQListener/index.html"
     },
 
-    // --- 曾经的文章（olds/） ---
+    // --- 旧文章存档（olds/） ---
     "ACDSaw.html": {
         title: "ACDSaw",
         author: "xxt8582753",
@@ -545,6 +598,12 @@ window.xxtArticleData = {
 };
 
 window.xxtArticleOrder = [
+    "cppsekai-web", 
+    "scanning.html",
+    "fucklibmgr.html",
+    "haitangxiangyouji.html",
+    "cppsekai.html",
+    "kb5124008.html",
     "taiko.html",
     "classislandinjector.html",
     "competition2.html",
@@ -659,6 +718,17 @@ window.xxtTagConfig = {
     if (closeBtn) closeBtn.addEventListener('click', hideDialog);
     if (overlay) overlay.addEventListener('click', hideDialog);
 
+    // 兜底:主题脚本可能把这枚 <img> 换成 <svg>(换掉后上面那条监听就失效了),
+    // 或者被伪元素盖住导致点不到元素本身。这里在**不会变动的容器**上再挂一层
+    // 事件委托,只要点在关闭键的区域内就关 —— 无论它现在是什么标签。
+    // 与既有的直接监听并存,重复触发也只是把 display 再设一次 none,无害。
+    dialog.addEventListener('click', function (e) {
+      var t = e.target;
+      if (t && t.closest && t.closest('.vista-close-btn')) {
+        hideDialog();
+      }
+    });
+
     if (resetBtn) {
       resetBtn.addEventListener('click', function () {
         if (confirm('确定要恢复默认设置吗？这将重置背景、设置偏好等，并刷新页面。')) {
@@ -715,20 +785,36 @@ window.xxtTagConfig = {
     loadSettings();
   }
 
-  function initBackground() {
-    var backgrounds = [
-      'background.webp',
-      'background/background_1.webp',
-      'background/background_2.webp',
-      'background/background_3.webp',
-      'background/background_4.webp'
-    ];
+  var BACKGROUNDS = [
+    'background.webp',
+    'background/background_1.webp',
+    'background/background_2.webp',
+    'background/background_3.webp',
+    'background/background_4.webp'
+  ];
+  var PLACEHOLDER_BG =
+    'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7';
+  function stickerThemeOn() {
+    var link = document.getElementById('themeCss');
+    var href = link ? (link.getAttribute('href') || '') : '';
+    return href.indexOf('modern-sticker') > -1;
+  }
 
+  function bgMedia(index) {
+    var link = document.getElementById('themeCss');
+    var href = link ? (link.getAttribute('href') || '') : '';
+    if (href.indexOf('modern-sticker') > -1) {
+      return "url('" + PLACEHOLDER_BG + '#' + index + "')";
+    }
+    return "url('" + BACKGROUNDS[index] + "')";
+  }
+
+  function initBackground() {
     var currentBgIndex = localStorage.getItem('bgIndex');
     currentBgIndex = currentBgIndex !== null ? parseInt(currentBgIndex) : 0;
 
     window.applyBackground = function (index) {
-      var bgUrl = "url('" + backgrounds[index] + "')";
+      var bgUrl = bgMedia(index);
       document.body.style.backgroundImage = bgUrl;
       document.body.style.setProperty('--mobile-bg', bgUrl);
     };
@@ -782,6 +868,16 @@ window.xxtTagConfig = {
   };
 
   if (closeGuestbookBtn) closeGuestbookBtn.addEventListener('click', hideGuestbookDialog);
+
+  // 兜底:同控制面板 —— 容器上再挂一层委托,图标被换掉 / 被伪元素盖住也点得动
+  if (guestbookDialog) {
+    guestbookDialog.addEventListener('click', function (e) {
+      var t = e.target;
+      if (t && t.closest && t.closest('.vista-close-btn')) {
+        hideGuestbookDialog();
+      }
+    });
+  }
   if (guestbookOverlay) {
     guestbookOverlay.addEventListener('click', function(e) {
       // 关闭留言本对话框
@@ -874,7 +970,8 @@ window.xxtTagConfig = {
 
       var imgTag = '';
       if (data.img && data.img !== "") {
-        imgTag = '<img alt="" src="' + data.img + '" loading="lazy" onerror="this.style.display=\'none\';">';
+        imgTag = '<img alt="" ' + (stickerThemeOn() ? 'data-src' : 'src') + '="' + data.img +
+          '" loading="lazy" onerror="this.style.display=\'none\';">';
       }
       var descTag = data.desc ? '<p>' + data.desc + '</p>' : '';
       var actionsHtml = '<div class="preview-actions" onclick="event.preventDefault(); event.stopPropagation(); return false;">' +
@@ -952,6 +1049,10 @@ window.xxtTagConfig = {
             '搜索</button></div>';
           tips.classList.add('waifu-tips-active');
           sessionStorage.setItem('waifu-message-priority', '11');
+          /* 输入框弹出 → 钉住(清掉残留的隐藏定时器 + 挡掉后续消息),
+             否则"划过模型""轮播"那些排着的定时器一到点就把输入框收走。
+             实现与理由见 live2d-widget/dist/waifu-tips.js 里的 xxtWaifuPinTips。 */
+          if (window.xxtWaifuPinTips) window.xxtWaifuPinTips(true);
           var input = document.getElementById('waifuSearchInput');
           if (input) {
             input.focus();
@@ -960,6 +1061,7 @@ window.xxtTagConfig = {
             });
             input.addEventListener('keydown', function (ev) {
               if (ev.key === 'Escape') {
+                if (window.xxtWaifuPinTips) window.xxtWaifuPinTips(false);
                 sessionStorage.removeItem('waifu-message-priority');
                 tips.classList.remove('waifu-tips-active');
               }
@@ -978,6 +1080,7 @@ window.xxtTagConfig = {
             if (term) {
               window.location.href = 'search.html?s=' + encodeURIComponent(term);
             } else {
+              if (window.xxtWaifuPinTips) window.xxtWaifuPinTips(false);
               sessionStorage.removeItem('waifu-message-priority');
               tips.classList.remove('waifu-tips-active');
             }
@@ -997,7 +1100,7 @@ window.xxtTagConfig = {
     if (!panel || !openBtn) return;
 
     // 主题列表
-    var themes = ['style.css', 'xpstyle.css'];
+    var themes = ['style.css', 'xpstyle.css', 'modern-sticker.css'];
 
     // 保存打开时的初始状态，用于"取消"恢复
     var savedWindowStates = {};
@@ -1110,19 +1213,12 @@ window.xxtTagConfig = {
       }
     }
 
-    // 切换背景
+    // 切换背景(手账主题下这是"换纸面色块",不下载壁纸 —— 见 BACKGROUNDS 的说明)
     function cycleBackground() {
-      var backgrounds = [
-        'background.webp',
-        'background/background_1.webp',
-        'background/background_2.webp',
-        'background/background_3.webp',
-        'background/background_4.webp'
-      ];
       var currentBgIndex = localStorage.getItem('bgIndex');
       currentBgIndex = currentBgIndex !== null ? parseInt(currentBgIndex) : 0;
-      currentBgIndex = (currentBgIndex + 1) % backgrounds.length;
-      document.body.style.backgroundImage = "url('" + backgrounds[currentBgIndex] + "')";
+      currentBgIndex = (currentBgIndex + 1) % BACKGROUNDS.length;
+      document.body.style.backgroundImage = bgMedia(currentBgIndex);
       localStorage.setItem('bgIndex', currentBgIndex);
     }
 
@@ -1461,6 +1557,13 @@ window.xxtTagConfig = {
     }
 
     if (closeBtn) closeBtn.addEventListener('click', hideDialog);
+    // 兜底:容器委托 —— 图标被换掉 / 被伪元素盖住也点得动
+    dialog.addEventListener('click', function (e) {
+      var t = e.target;
+      if (t && t.closest && t.closest('.vista-close-btn')) {
+        hideDialog();
+      }
+    });
     if (overlay) {
       overlay.addEventListener('click', function() {
         if (dialog.style.display === 'block') {
@@ -1657,7 +1760,8 @@ window.xxtTagConfig = {
 
       var imgTag = '';
       if (data.img && data.img !== "") {
-        imgTag = '<img alt="" src="' + data.img + '" loading="lazy" onerror="this.style.display=\'none\';">';
+        imgTag = '<img alt="" ' + (stickerThemeOn() ? 'data-src' : 'src') + '="' + data.img +
+          '" loading="lazy" onerror="this.style.display=\'none\';">';
       }
       var descTag = data.desc ? '<p>' + data.desc + '</p>' : '';
       var actionsHtml = '<div class="preview-actions" onclick="event.preventDefault(); event.stopPropagation(); return false;">' +
